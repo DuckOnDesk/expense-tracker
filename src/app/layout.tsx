@@ -3,10 +3,24 @@ import Link from "next/link";
 import "./globals.css";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/login/actions";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
   title: "가계부",
   description: "알림 기반 자동 가계부",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "가계부",
+  },
+  icons: {
+    icon: "/icons/icon-192.png",
+    apple: "/icons/icon-192.png",
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export default async function RootLayout({
@@ -32,6 +46,9 @@ export default async function RootLayout({
                 <Link href="/transactions" className="hover:text-blue-600">
                   거래 내역
                 </Link>
+                <Link href="/budget" className="hover:text-blue-600">
+                  예산
+                </Link>
               </nav>
               <form action={signOut}>
                 <button
@@ -45,6 +62,7 @@ export default async function RootLayout({
           </header>
         )}
         <main className="flex-1">{children}</main>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

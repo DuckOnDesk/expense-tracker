@@ -4,7 +4,8 @@ import { ensureDefaultCategories } from "@/lib/seedCategories";
 import { formatWon } from "@/lib/format";
 import { CategoryPieChart, type CategorySlice } from "@/components/CategoryPieChart";
 import { MonthlyTrendChart, type MonthlyPoint } from "@/components/MonthlyTrendChart";
-import type { TransactionWithCategory } from "@/types/db";
+import { BudgetBar } from "@/components/BudgetBar";
+import type { Budget, Category, TransactionWithCategory } from "@/types/db";
 
 function monthKey(date: Date) {
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -72,6 +73,28 @@ export default async function DashboardPage() {
 
   const recentFive = transactions.slice(0, 5);
 
+  // Budget data for this month
+  const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  const { data: budgetsRaw } = await supabase
+    .from("budgets")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("month", monthStr);
+  const { data: categoriesRaw } = await supabase
+    .from("categories")
+    .select("*")
+    .eq("user_id", user.id);
+
+  const budgets = (budgetsRaw ?? []) as Budget[];
+  const allCategories = (categoriesRaw ?? []) as Category[];
+  const catMap = new Map(allCategories.map((c) => [c.id, c]));
+  const spentByCategory = new Map<string | null, number>();
+  for (const t of thisMonthTx) {
+    if (t.type !== "expense") continue;
+    const k = t.category_id;
+    spentByCategory.set(k, (spentByCategory.get(k) ?? 0) + Number(t.amount));
+  }
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-6">
       <div className="flex items-center justify-between">
@@ -112,6 +135,34 @@ export default async function DashboardPage() {
           </ul>
         )}
       </div>
+
+      {budgets.length > 0 && (
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-gray-700">예산 현황</h2>
+            <Link href="/budget" className="text-xs text-blue-600 hover:underline">
+              예산 관리 →
+            </Link>
+          </div>
+          <div className="space-y-4">
+            {budgets.map((b) => {
+              const cat = b.category_id ? catMap.get(b.category_id) : null;
+              const spent = b.category_id
+                ? (spentByCategory.get(b.category_id) ?? 0)
+                : thisMonthExpense;
+              return (
+                <BudgetBar
+                  key={b.id}
+                  label={cat?.name ?? "전체 지출"}
+                  color={cat?.color ?? "#6b7280"}
+                  spent={spent}
+                  budget={Number(b.amount)}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-gray-200 bg-white p-4">
         <h2 className="mb-2 text-sm font-semibold text-gray-700">최근 6개월 추이</h2>
